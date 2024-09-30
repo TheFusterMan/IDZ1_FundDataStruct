@@ -9,8 +9,6 @@ struct Node {
 };
 
 class List {
-private:
-    Node* head;
 public:
     //1. Инициализация
     Node* init() {
@@ -137,14 +135,17 @@ int main()
     SetConsoleOutputCP(1251);
 
     List list;
-    Node* head = list.init();
     int choice, value;
+    boolean is_fst_active = true;
 
+    Node* fst_head = list.init();
+    Node* scnd_head = list.init();
+    Node** curr_head = &fst_head;
     //Для симметрической разности
     Node* result = list.init();
-    Node* scnd_head = list.init();
 
     do {
+        cout << ((is_fst_active) ? "Активный список: 1" : "Активный список: 2") << "\n";
         cout << "Меню:\n";
         cout << "1. Инициализация списка\n";
         cout << "2. Освобождение памяти\n";
@@ -154,75 +155,68 @@ int main()
         cout << "6. Поиск элемента\n";
         cout << "7. Печать списка\n";
         cout << "8. Симметрическая разность двух списков\n";
+        cout << "9. Изменить активный список\n";
         cout << "0. Выход\n";
         cout << "Выберите действие: ";
         cin >> choice;
 
         switch (choice) {
         case 1: //+1. Инициализация
-            head = list.init();
+            *curr_head = list.init();
             cout << "Список инициализирован.\n";
             break;
         case 2: //+2. Освобождение памяти
-            list.dispose(head);
+            list.dispose(*curr_head);
             cout << "Память освобождена.\n";
             break;
         case 3: //+3. Добавление элемента (упорядоченный по возрастанию)
             cout << "Введите значение для добавления: ";
             cin >> value;
-            list.addSorted(head, value);
+            list.addSorted(*curr_head, value);
             cout << "Элемент добавлен.\n";
             break;
         case 4: //+4. Удаление всех вхождений заданного по значению элемента
             cout << "Введите значение для удаления: ";
             cin >> value;
-            list.removeAll(head, value);
+            list.removeAll(*curr_head, value);
             cout << "Вхождения удалены.\n";
             break;
         case 5: //+5. Удаление (после каждого вхождения заданного)
             cout << "Введите значение, после каждого вхождения которого необходимо производить удаление: ";
             cin >> value;
-            list.removeAfter(head, value);
+            list.removeAfter(*curr_head, value);
             break;
         case 6: //+6. Поиск заданного элемента по значению
             cout << "Введите значение для поиска: ";
             cin >> value;
-            if (list.find(head, value)) {
+            if (list.find(*curr_head, value)) {
                 cout << "Элемент найден.\n";
             }
             else cout << "Элемент не найден.\n";
             break;
         case 7: //+7. Печать
             cout << "Список: ";
-            list.print(head);
+            list.print(*curr_head);
             break;
         case 8: //+8. Операция работы с двумя списками (симметрическая разность)
-            while (true) {
-                string input;
-                cout << "Введите очередной элемент второго списка либо введите латинскую 'e', чтобы завершить ввод: ";
-                cin >> input;
-
-                if (input == "e") {
-                    cout << "Ввод второго списка завершен.\n";
-                    break;
-                }
-
-                try {
-                    value = stoi(input);
-                    list.addSorted(scnd_head, value);
-                }
-                catch (invalid_argument& e) {
-                    cout << "Некорректный ввод, попробуйте снова.\n";
-                }
-            };
             cout << "Первый список: ";
-            list.print(head);
+            list.print(fst_head);
             cout << "Второй список: ";
             list.print(scnd_head);
 
-            result = list.symmetricDifference(head, scnd_head);
+            result = list.symmetricDifference(fst_head, scnd_head);
             cout << "Результат: ";
             list.print(result);
+            break;
+        case 9:
+            if (!is_fst_active) {
+                curr_head = &fst_head;
+            }
+            else {
+                curr_head = &scnd_head;
+            }
+            is_fst_active = !is_fst_active;
+            cout << "Активный список изменен.\n";
             break;
         case 0:
             cout << "Выход из программы.\n";
@@ -232,6 +226,6 @@ int main()
         }
     } while (choice != 0);
 
-    list.dispose(head);
+    list.dispose(*curr_head);
     return 0;
 }
