@@ -1,0 +1,767 @@
+#include <windows.h>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
+#include <algorithm>
+#include <iomanip>
+#include <regex>
+
+using namespace std;
+
+// Структура для представления узла списка
+struct ListNode {
+    int data; // Номер строки
+    ListNode* next;
+
+    ListNode(int d) : data(d), next(nullptr) {}
+};
+
+// Класс для представления списка
+class List {
+public:
+    ListNode* head;
+
+    List() : head(nullptr) {}
+
+    // Добавление элемента в конец списка
+    void add(int value) {
+        ListNode* newNode = new ListNode(value);
+        if (!head) {
+            head = newNode;
+            return;
+        }
+
+        ListNode* current = head;
+        while (current->next) {
+            current = current->next;
+        }
+        current->next = newNode;
+    }
+
+    // Печать списка
+    void print() const {
+        ListNode* current = head;
+        while (current) {
+            cout << current->data;
+            if (current->next) {
+                cout << ", ";
+            }
+            current = current->next;
+        }
+        cout << endl;
+    }
+
+    // Получение строки со всеми элементами списка
+    string toString() const {
+        string result = "";
+        ListNode* current = head;
+        while (current) {
+            result += to_string(current->data);
+            if (current->next) {
+                result += ", ";
+            }
+            current = current->next;
+        }
+        return result;
+    }
+
+    // Освобождение памяти, занимаемой списком
+    void freeList() {
+        ListNode* current = head;
+        while (current) {
+            ListNode* next = current->next;
+            delete current;
+            current = next;
+        }
+        head = nullptr;
+    }
+};
+
+// Структура для представления ФИО
+struct PersonName {
+    string lastName;
+    string firstName;
+    string middleName;
+
+    // Перегрузка оператора сравнения для Ф,И,О ключа
+    bool operator<(const PersonName& other) const {
+        if (lastName != other.lastName) return lastName < other.lastName;
+        if (firstName != other.firstName) return firstName < other.firstName;
+        return middleName < other.middleName;
+    }
+
+    bool operator>(const PersonName& other) const {
+        if (lastName != other.lastName) return lastName > other.lastName;
+        if (firstName != other.firstName) return firstName > other.firstName;
+        return middleName > other.middleName;
+    }
+
+    bool operator==(const PersonName& other) const {
+        return lastName == other.lastName && firstName == other.firstName && middleName == other.middleName;
+    }
+
+    bool operator!=(const PersonName& other) const {
+        return lastName != other.lastName or firstName != other.firstName or middleName != other.middleName;
+    }
+};
+
+// Структура для представления ключа (ФИО + ФИО)
+struct Key {
+    PersonName person1;
+    PersonName person2;
+
+    string toString() const {
+        return person1.lastName + " " + person1.firstName + " " + person1.middleName + " " +
+            person2.lastName + " " + person2.firstName + " " + person2.middleName;
+    }
+
+    // Перегрузка оператора сравнения для ключей
+    bool operator<(const Key& other) const {
+        if (person1 != other.person1) return person1 < other.person1;
+        return person2 < other.person2;
+    }
+
+    bool operator>(const Key& other) const {
+        if (person1 != other.person1) return person1 > other.person1;
+        return person2 > other.person2;
+    }
+
+    bool operator==(const Key& other) const {
+        return person1 == other.person1 && person2 == other.person2;
+    }
+};
+
+// Структура для представления узла дерева
+struct TreeNode {
+    Key key;
+    List lineNumbers; // Список номеров строк
+    int balanceFactor; // Коэффициент сбалансированности
+    TreeNode* left;
+    TreeNode* right;
+
+    TreeNode(const Key& k, int line) : key(k), balanceFactor(0), left(nullptr), right(nullptr) {
+        lineNumbers.add(line);
+    }
+};
+
+// Структура для представления дерева
+struct AVLTree {
+    TreeNode* root;
+
+    AVLTree() : root(nullptr) {}
+};
+
+// Получение высоты узла
+int height(TreeNode* node) {
+    if (!node) {
+        return 0;
+    }
+    return 1 + max(height(node->left), height(node->right));
+}
+
+// Обновление коэффициента сбалансированности узла
+void updateBalanceFactor(TreeNode* node) {
+    if (node) {
+        node->balanceFactor = height(node->left) - height(node->right);
+    }
+}
+
+// Малый правый поворот
+TreeNode* rotateRight(TreeNode* y) {
+    TreeNode* x = y->left;
+    TreeNode* T2 = x->right;
+
+    x->right = y;
+    y->left = T2;
+
+    updateBalanceFactor(y);
+    updateBalanceFactor(x);
+
+    return x;
+}
+
+// Малый левый поворот
+TreeNode* rotateLeft(TreeNode* x) {
+    TreeNode* y = x->right;
+    TreeNode* T2 = y->left;
+
+    y->left = x;
+    x->right = T2;
+
+    updateBalanceFactor(x);
+    updateBalanceFactor(y);
+
+    return y;
+}
+
+// Большой левый поворот
+TreeNode* rotateLeftRight(TreeNode* node) {
+    node->left = rotateLeft(node->left);
+    return rotateRight(node);
+}
+
+// Большой правый поворот
+TreeNode* rotateRightLeft(TreeNode* node) {
+    node->right = rotateRight(node->right);
+    return rotateLeft(node);
+}
+
+// Балансировка узла
+TreeNode* balance(TreeNode* node) {
+    updateBalanceFactor(node);
+
+    if (node->balanceFactor > 1) {
+        if (height(node->left->left) >= height(node->left->right)) {
+            return rotateRight(node);
+        }
+        else {
+            return rotateLeftRight(node);
+        }
+    }
+    if (node->balanceFactor < -1) {
+        if (height(node->right->right) >= height(node->right->left)) {
+            return rotateLeft(node);
+        }
+        else {
+            return rotateRightLeft(node);
+        }
+    }
+    return node;
+}
+
+// Проверка корректности ФИО
+bool isValidFullName(const string& fullName) {
+    // Регулярное выражение для проверки ФИО (три слова, разделённые пробелами)
+    regex fullNameRegex(R"(^[А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё]+$)");
+
+    return regex_match(fullName, fullNameRegex);
+}
+
+// 2. Добавление нового элемента
+TreeNode* insert(TreeNode* node, const Key& key, int lineNumber, bool& h) {
+    if (!node) {
+        node = new TreeNode(key, lineNumber);
+        h = true;
+        return node;
+    }
+
+    if (key < node->key) {
+        node->left = insert(node->left, key, lineNumber, h);
+    }
+    else if (key > node->key) {
+        node->right = insert(node->right, key, lineNumber, h);
+    }
+    else {
+        // Найден узел с таким же ключом, добавляем номер строки в список
+        node->lineNumbers.add(lineNumber);
+        h = false;
+        return node;
+    }
+
+    if (h) {
+        if (key < node->key) {
+            if (node->balanceFactor == 1) {
+                if (key < node->left->key) {
+                    node = rotateRight(node);
+                }
+                else {
+                    node = rotateLeftRight(node);
+                }
+                h = false;
+            }
+            else if (node->balanceFactor == 0) {
+                node->balanceFactor = 1;
+            }
+            else {
+                node->balanceFactor = 0;
+                h = false;
+            }
+        }
+        else {
+            if (node->balanceFactor == -1) {
+                if (key > node->right->key) {
+                    node = rotateLeft(node);
+                }
+                else {
+                    node = rotateRightLeft(node);
+                }
+                h = false;
+            }
+            else if (node->balanceFactor == 0) {
+                node->balanceFactor = -1;
+            }
+            else {
+                node->balanceFactor = 0;
+                h = false;
+            }
+        }
+    }
+
+    return node;
+}
+
+void add(AVLTree& tree, const Key& key, int lineNumber) {
+    bool h = false;
+    tree.root = insert(tree.root, key, lineNumber, h);
+}
+// 3. Удаление заданного элемента (максимальный слева)
+TreeNode* balanceL(TreeNode* p, bool& h) {
+    TreeNode* p1;
+    TreeNode* p2;
+    if (p->balanceFactor == -1) {
+        p->balanceFactor = 0;
+    }
+    else if (p->balanceFactor == 0) {
+        p->balanceFactor = 1;
+        h = false;
+    }
+    else {
+        p1 = p->left;
+        if (p1->balanceFactor >= 0) {
+            if (p1->balanceFactor == 0)
+                h = false;
+            p->left = p1->right;
+            p1->right = p;
+            if (p1->balanceFactor == 0) {
+                p->balanceFactor = 1;
+                p1->balanceFactor = -1;
+            }
+            else {
+                p->balanceFactor = 0;
+                p1->balanceFactor = 0;
+            }
+            p = p1;
+        }
+        else {
+            p2 = p1->right;
+            p1->right = p2->left;
+            p2->left = p1;
+            p->left = p2->right;
+            p2->right = p;
+            if (p2->balanceFactor == -1) {
+                p->balanceFactor = 0;
+                p1->balanceFactor = 1;
+            }
+            else if (p2->balanceFactor == 0) {
+                p->balanceFactor = 0;
+                p1->balanceFactor = 0;
+            }
+            else {
+                p->balanceFactor = -1;
+                p1->balanceFactor = 0;
+            }
+            p = p2;
+            p2->balanceFactor = 0;
+        }
+    }
+    return p;
+}
+
+TreeNode* balanceR(TreeNode* p, bool& h) {
+    TreeNode* p1;
+    TreeNode* p2;
+
+    if (p->balanceFactor == 1) {
+        p->balanceFactor = 0;
+    }
+    else if (p->balanceFactor == 0) {
+        p->balanceFactor = -1;
+        h = false;
+    }
+    else {
+        p1 = p->right;
+        if (p1->balanceFactor <= 0) {
+            if (p1->balanceFactor == 0)
+                h = false;
+            p->right = p1->left;
+            p1->left = p;
+            if (p1->balanceFactor == 0) {
+                p->balanceFactor = -1;
+                p1->balanceFactor = 1;
+
+            }
+            else {
+                p->balanceFactor = 0;
+                p1->balanceFactor = 0;
+            }
+            p = p1;
+        }
+        else {
+            p2 = p1->left;
+            p1->left = p2->right;
+            p2->right = p1;
+            p->right = p2->left;
+            p2->left = p;
+            if (p2->balanceFactor == 1) {
+                p->balanceFactor = 0;
+                p1->balanceFactor = -1;
+            }
+            else if (p2->balanceFactor == 0) {
+                p->balanceFactor = 0;
+                p1->balanceFactor = 0;
+            }
+            else {
+                p->balanceFactor = 1;
+                p1->balanceFactor = 0;
+            }
+            p = p2;
+            p2->balanceFactor = 0;
+        }
+    }
+    return p;
+}
+
+TreeNode* del(TreeNode* r, TreeNode* q, bool& h) {
+    TreeNode* temp;
+    if (r->right != nullptr) {
+        r->right = del(r->right, q, h); // Идем вправо, пока не найдем самый правый элемент
+        if (h) {
+            r = balanceR(r, h); // Балансируем по пути назад, если высота изменилась
+        }
+    }
+    else {
+        // Нашли самый правый узел в левом поддереве (максимальный слева)
+        temp = r;
+        q->key = r->key;          // Копируем ключ
+        q->lineNumbers = r->lineNumbers; // Копируем список строк
+        r = r->left;             // Заменяем найденный узел его левым потомком (может быть nullptr)
+        h = true;                // Высота поддерева уменьшилась
+    }
+    return r;
+}
+
+TreeNode* remove(TreeNode* node, const Key& key, bool& h) {
+    if (node == nullptr) {
+        h = false;
+        return nullptr;
+    }
+
+    if (key < node->key) {
+        node->left = remove(node->left, key, h);
+        if (h) {
+            node = balanceR(node, h); // Балансировка после удаления в левом поддереве
+        }
+    }
+    else if (key > node->key) {
+        node->right = remove(node->right, key, h);
+        if (h) {
+            node = balanceL(node, h); // Балансировка после удаления в правом поддереве
+        }
+    }
+    else { // key == node->key
+        TreeNode* q = node;
+        if (q->left == nullptr) {
+            node = q->right;
+            h = true;
+        }
+        else if (q->right == nullptr) {
+            node = q->left;
+            h = true;
+        }
+        else {
+            node->left = del(node->left, node, h); // Удаление максимального слева
+            if (h) {
+                node = balanceR(node, h);
+            }
+        }
+        // Освобождаем список номеров строк перед удалением узла
+        if (q != node) {
+            q->lineNumbers.freeList();
+        }
+        delete q;
+    }
+
+    return node;
+}
+
+void remove(AVLTree& tree, const Key& key) {
+    bool h = false;
+    tree.root = remove(tree.root, key, h);
+}
+
+// 4. Поиск заданного элемента
+TreeNode* search(TreeNode* node, const Key& key) {
+    if (node == nullptr || node->key == key) {
+        return node;
+    }
+
+    if (key < node->key) {
+        return search(node->left, key);
+    }
+
+    return search(node->right, key);
+}
+
+TreeNode* search(const AVLTree& tree, const Key& key) {
+    return search(tree.root, key);
+}
+
+// 5. Печать
+void preOrderPrint(TreeNode* node, ofstream& outputFile) {
+    if (node) {
+        outputFile << node->key.toString() << " ";
+        outputFile << node->lineNumbers.toString() << endl;
+        preOrderPrint(node->left, outputFile);
+        preOrderPrint(node->right, outputFile);
+    }
+}
+
+void print(const AVLTree& tree, const string& filename) {
+    ofstream outputFile(filename);
+    if (outputFile.is_open()) {
+        preOrderPrint(tree.root, outputFile);
+        outputFile.close();
+    }
+    else {
+        cerr << "Ошибка в открытии файла: " << filename << endl;
+    }
+}
+
+// 6. Обход: прямой
+void printTree(TreeNode* node, int indent = 0) {
+    if (node != nullptr) {
+        if (node->right) {
+            printTree(node->right, indent + 4);
+        }
+        if (indent) {
+            cout << setw(indent) << ' ';
+        }
+        if (node->right) cout << " /\n" << setw(indent) << ' ';
+        cout << node->key.toString() << " (" << node->lineNumbers.toString() << ")" << "\n ";
+        if (node->left) {
+            cout << setw(indent) << ' ' << " \\\n";
+            printTree(node->left, indent + 4);
+        }
+    }
+}
+
+// 7. Освобождение памяти (удаление всего дерева)
+void freeTree(TreeNode* node) {
+    if (node) {
+        freeTree(node->left);
+        freeTree(node->right);
+        node->lineNumbers.freeList();
+        delete node;
+    }
+}
+
+void freeAVLTree(AVLTree& tree) {
+    freeTree(tree.root);
+    tree.root = nullptr;
+}
+
+// Функция для загрузки данных из файла в дерево
+bool loadDataFromFile(const string& filename, AVLTree& tree) {
+    ifstream inputFile(filename);
+    if (!inputFile.is_open()) {
+        cerr << "Ошибка в открытии файла: " << filename << endl;
+        return false;
+    }
+
+    string line;
+    int lineNumber = 1;
+    while (getline(inputFile, line)) {
+        string lastName1, firstName1, middleName1, lastName2, firstName2, middleName2;
+
+        replace(line.begin(), line.end(), ';', ' '); // Заменяем все ';' на пробелы
+        stringstream ss(line);
+
+        if (ss >> lastName1 >> firstName1 >> middleName1 >> lastName2 >> firstName2 >> middleName2) {
+            string fullName1 = lastName1 + " " + firstName1 + " " + middleName1;
+            string fullName2 = lastName2 + " " + firstName2 + " " + middleName2;
+
+            if (isValidFullName(fullName1) && isValidFullName(fullName2)) {
+                PersonName person1 = { lastName1, firstName1, middleName1 };
+                PersonName person2 = { lastName2, firstName2, middleName2 };
+                Key key = { person1, person2 };
+                add(tree, key, lineNumber);
+            }
+            else {
+                cerr << "Ошибка: некорректный формат ФИО в строке " << lineNumber << endl;
+            }
+        }
+        else {
+            cerr << "Ошибка формата данных в строке: " << lineNumber << endl;
+        }
+
+        lineNumber++;
+    }
+
+    inputFile.close();
+    return true;
+}
+
+int main() {
+    SetConsoleOutputCP(1251);
+    SetConsoleCP(1251);
+    setlocale(LC_ALL, "Russian");
+
+    AVLTree tree;
+    int choice;
+
+    // Загрузка данных из файла при запуске
+    if (!loadDataFromFile("input.txt", tree)) {
+        return 1;
+    }
+
+    do {
+        cout << "\nМеню:\n";
+        cout << "1. Инициализация (пустого дерева)\n";
+        cout << "2. Добавить новый элемент\n";
+        cout << "3. Удалить элемент\n";
+        cout << "4. Найти элемент\n";
+        cout << "5. Распечатать дерево в файл\n";
+        cout << "6. Прямой обход\n";
+        cout << "7. Освободить память (удалить дерево)\n";
+        cout << "8. Распечатать дерево на экран\n";
+        cout << "0. Выход\n";
+        cout << "Введите ваш выбор: ";
+        cin >> choice;
+
+        switch (choice) {
+        case 1:
+            freeAVLTree(tree);
+            tree = AVLTree();
+            cout << "Дерево инициализировано.\n";
+            break;
+
+        case 2: {
+            Key key;
+            int lineNumber;
+
+            do {
+                cout << "Введите данные первого человека (Фамилия Имя Отчество): ";
+                cin >> key.person1.lastName >> key.person1.firstName >> key.person1.middleName;
+                string fullName1 = key.person1.lastName + " " + key.person1.firstName + " " + key.person1.middleName;
+                if (!isValidFullName(fullName1)) {
+                    cout << "Ошибка: некорректное ФИО. Повторите ввод.\n";
+                }
+                else {
+                    break;
+                }
+            } while (true);
+
+            do {
+                cout << "Введите данные второго человека (Фамилия Имя Отчество): ";
+                cin >> key.person2.lastName >> key.person2.firstName >> key.person2.middleName;
+                string fullName2 = key.person2.lastName + " " + key.person2.firstName + " " + key.person2.middleName;
+                if (!isValidFullName(fullName2)) {
+                    cout << "Ошибка: некорректное ФИО. Повторите ввод.\n";
+                }
+                else {
+                    break;
+                }
+            } while (true);
+
+            cout << "Введите номер строки: ";
+            cin >> lineNumber;
+
+            add(tree, key, lineNumber);
+            cout << "Элемент добавлен.\n";
+            break;
+        }
+
+        case 3: {
+            Key key;
+
+            do {
+                cout << "Введите данные первого человека (Фамилия Имя Отчество): ";
+                cin >> key.person1.lastName >> key.person1.firstName >> key.person1.middleName;
+                string fullName1 = key.person1.lastName + " " + key.person1.firstName + " " + key.person1.middleName;
+                if (!isValidFullName(fullName1)) {
+                    cout << "Ошибка: некорректное ФИО. Повторите ввод.\n";
+                }
+                else {
+                    break;
+                }
+            } while (true);
+
+            do {
+                cout << "Введите данные второго человека (Фамилия Имя Отчество): ";
+                cin >> key.person2.lastName >> key.person2.firstName >> key.person2.middleName;
+                string fullName2 = key.person2.lastName + " " + key.person2.firstName + " " + key.person2.middleName;
+                if (!isValidFullName(fullName2)) {
+                    cout << "Ошибка: некорректное ФИО. Повторите ввод.\n";
+                }
+                else {
+                    break;
+                }
+            } while (true);
+
+            remove(tree, key);
+            cout << "Элемент удален.\n";
+            break;
+        }
+
+        case 4: {
+            Key key;
+
+            do {
+                cout << "Введите данные первого человека (Фамилия Имя Отчество): ";
+                cin >> key.person1.lastName >> key.person1.firstName >> key.person1.middleName;
+                string fullName1 = key.person1.lastName + " " + key.person1.firstName + " " + key.person1.middleName;
+                if (!isValidFullName(fullName1)) {
+                    cout << "Ошибка: некорректное ФИО. Повторите ввод.\n";
+                }
+                else {
+                    break;
+                }
+            } while (true);
+
+            do {
+                cout << "Введите данные второго человека (Фамилия Имя Отчество): ";
+                cin >> key.person2.lastName >> key.person2.firstName >> key.person2.middleName;
+                string fullName2 = key.person2.lastName + " " + key.person2.firstName + " " + key.person2.middleName;
+                if (!isValidFullName(fullName2)) {
+                    cout << "Ошибка: некорректное ФИО. Повторите ввод.\n";
+                }
+                else {
+                    break;
+                }
+            } while (true);
+
+            TreeNode* foundNode = search(tree, key);
+            if (foundNode) {
+                cout << "Элемент найден. Номера строк: ";
+                foundNode->lineNumbers.print();
+                cout << endl;
+            }
+            else {
+                cout << "Элемент не найден.\n";
+            }
+            break;
+        }
+
+        case 5:
+            print(tree, "output.txt");
+            cout << "Дерево распечатано в файл output.txt\n";
+            break;
+
+        case 6:
+            print(tree, "output.txt");
+            cout << "Прямой обход распечатан в файл output.txt\n";
+            break;
+
+        case 7:
+            freeAVLTree(tree);
+            cout << "Память дерева освобождена.\n";
+            break;
+
+        case 8:
+            cout << "Дерево:\n";
+            printTree(tree.root);
+            break;
+
+        case 0:
+            cout << "Выход.\n";
+            break;
+
+        default:
+            cout << "Неверный выбор.\n";
+        }
+    } while (choice != 0);
+
+    freeAVLTree(tree);
+    return 0;
+}
